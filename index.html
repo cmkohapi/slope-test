@@ -20,10 +20,16 @@
             touch-action: manipulation;
         }
 
-        /* 轉盤旋轉動畫控制 */
+        /* 轉盤容器與旋轉控制 */
+        #wheel-container {
+            position: relative;
+            user-select: none;
+        }
+
         #wheel {
             transition: transform 4s cubic-bezier(0.15, 0, 0.15, 1);
-            filter: drop-shadow(0 5px 15px rgba(0,0,0,0.1));
+            filter: drop-shadow(0 8px 15px rgba(0,0,0,0.1));
+            transform-origin: center center;
         }
 
         /* 閃卡 3D 效果 */
@@ -31,7 +37,7 @@
             perspective: 1000px;
             width: 100%;
             max-width: 350px;
-            height: 450px;
+            height: 480px;
         }
         .card-inner {
             position: relative;
@@ -67,12 +73,23 @@
             color: #111;
         }
 
-        /* 按鈕觸感回饋 */
-        button:active {
-            transform: scale(0.95);
+        /* GO按鈕優化 */
+        #spin-btn {
+            z-index: 50;
+            transition: all 0.2s;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #spin-btn:active {
+            transform: translate(-50%, -50%) scale(0.9);
+        }
+        #spin-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.8;
+            background-color: #f3f4f6;
         }
 
-        /* 隱藏捲軸但保留滾動 */
+        /* 隱藏捲軸 */
         ::-webkit-scrollbar {
             display: none;
         }
@@ -85,38 +102,39 @@
         <p class="text-teal-600 font-medium">轉動轉盤，學習水土保持！</p>
     </header>
 
-    <!-- 遊戲主要區域 -->
     <main class="flex flex-col items-center justify-center w-full">
-        <!-- 轉盤 -->
+        <!-- 轉盤包裝區 -->
         <div id="wheel-wrapper" class="relative w-[320px] h-[320px] md:w-[450px] md:h-[450px]">
-            <!-- 指針 (位於上方中央) -->
-            <div class="absolute -top-2 left-1/2 -translate-x-1/2 z-30 drop-shadow-md">
+            <!-- 指針 (位於最上層) -->
+            <div class="absolute -top-4 left-1/2 -translate-x-1/2 z-40 drop-shadow-md">
                 <svg width="40" height="50" viewBox="0 0 40 50">
                     <path d="M20 50 L0 0 L40 0 Z" fill="#ef4444" />
                 </svg>
             </div>
             
-            <!-- SVG 轉盤 -->
-            <svg id="wheel" class="w-full h-full" viewBox="0 0 100 100">
-                <!-- 由 JavaScript 動態生成扇區 -->
-            </svg>
+            <!-- SVG 轉盤本體 -->
+            <div id="wheel-container" class="w-full h-full">
+                <svg id="wheel" class="w-full h-full" viewBox="0 0 100 100">
+                    <!-- 由 JavaScript 動態生成扇區 -->
+                </svg>
+            </div>
 
-            <!-- 中心啟動按鈕 -->
-            <button id="spin-btn" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 md:w-24 md:h-24 bg-white rounded-full shadow-2xl z-40 border-8 border-teal-500 flex items-center justify-center cursor-pointer group hover:bg-teal-50 transition-colors">
-                <span class="text-xl font-bold text-teal-700 group-hover:scale-110 transition-transform">GO!</span>
+            <!-- 中心啟動按鈕 (使用絕對中心定位) -->
+            <button id="spin-btn" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 md:w-24 md:h-24 bg-white rounded-full shadow-2xl border-8 border-teal-500 flex items-center justify-center">
+                <span class="text-xl font-bold text-teal-700">GO!</span>
             </button>
         </div>
 
-        <p class="mt-8 text-teal-700 bg-white/50 px-4 py-2 rounded-full text-sm animate-bounce">
+        <p id="hint-text" class="mt-8 text-teal-700 bg-white/50 px-6 py-2 rounded-full text-sm animate-bounce">
             點擊中心「GO!」開始抽題
         </p>
     </main>
 
-    <!-- 閃卡彈出視窗 (Overlay) -->
-    <div id="modal" class="fixed inset-0 bg-teal-900/80 hidden items-center justify-center z-50 p-6 backdrop-blur-sm">
+    <!-- 閃卡視窗 -->
+    <div id="modal" class="fixed inset-0 bg-teal-900/80 hidden items-center justify-center z-[100] p-6 backdrop-blur-sm">
         <div class="card-container">
             <div id="card-inner" class="card-inner">
-                <!-- 正面：顯示題目 -->
+                <!-- 正面：題目 -->
                 <div class="card-front">
                     <div class="absolute top-6 left-6 bg-teal-100 text-teal-700 px-3 py-1 rounded-full text-xs font-bold" id="card-num-label">題目 #1</div>
                     <div class="text-6xl mb-6">❓</div>
@@ -124,14 +142,14 @@
                         題目載入中...
                     </h2>
                     <div class="mt-10 flex flex-col items-center">
-                        <div class="w-12 h-12 rounded-full border-2 border-dashed border-teal-300 flex items-center justify-center animate-spin-slow">
+                        <div class="w-12 h-12 rounded-full border-2 border-dashed border-teal-300 flex items-center justify-center animate-pulse">
                            <span class="text-teal-400">👆</span>
                         </div>
                         <p class="mt-2 text-sm text-teal-400 font-medium">點擊卡片看答案</p>
                     </div>
                 </div>
 
-                <!-- 背面：顯示答案與獎勵 -->
+                <!-- 背面：答案與獎勵 -->
                 <div class="card-back border-8 border-teal-400">
                     <div class="text-4xl mb-4">✅</div>
                     <h3 class="text-teal-600 font-bold text-lg mb-2">正確答案</h3>
@@ -142,7 +160,7 @@
                         <p id="reward-text" class="text-yellow-700 text-sm italic text-center leading-relaxed"></p>
                     </div>
 
-                    <button id="close-btn" class="bg-teal-600 text-white font-bold py-3 px-10 rounded-full shadow-lg hover:bg-teal-700 transition-colors">
+                    <button id="close-btn" class="bg-teal-600 text-white font-bold py-3 px-10 rounded-full shadow-lg hover:bg-teal-700 active:scale-95 transition-all">
                         太棒了，下一題！
                     </button>
                 </div>
@@ -169,27 +187,27 @@
         const modal = document.getElementById('modal');
         const cardInner = document.getElementById('card-inner');
         const closeBtn = document.getElementById('close-btn');
+        const hintText = document.getElementById('hint-text');
         
         let currentRotation = 0;
+        let isSpinning = false;
         const numSegments = questions.length;
         const colors = ['#FFADAD', '#FFD6A5', '#FDFFB6', '#CAFFBF', '#9BF6FF', '#A0C4FF', '#BDB2FF', '#FFC6FF', '#C7F9CC', '#80FFDB'];
 
-        // 初始化轉盤
         function init() {
+            wheel.innerHTML = '';
             for (let i = 0; i < numSegments; i++) {
                 const angle = 360 / numSegments;
                 const rotate = i * angle;
                 
                 const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
                 
-                // 扇區
                 const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
                 p.setAttribute("d", createArcPath(50, 50, 50, rotate, rotate + angle));
                 p.setAttribute("fill", colors[i % colors.length]);
                 p.setAttribute("stroke", "white");
                 p.setAttribute("stroke-width", "0.8");
                 
-                // 數字標籤
                 const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
                 const textAngle = rotate + (angle / 2);
                 const rad = (textAngle - 90) * Math.PI / 180;
@@ -230,26 +248,32 @@
             };
         }
 
-        // 旋轉觸發
-        spinBtn.addEventListener('click', () => {
-            if (spinBtn.style.pointerEvents === 'none') return;
-            spinBtn.style.pointerEvents = 'none';
-            spinBtn.style.opacity = '0.7';
+        // 旋轉核心邏輯
+        spinBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (isSpinning) return;
             
-            // 隨機旋轉 5~8 圈加上隨機角度
-            const extraDegrees = 1800 + Math.floor(Math.random() * 1080);
-            currentRotation += extraDegrees;
+            isSpinning = true;
+            spinBtn.disabled = true;
+            hintText.classList.add('opacity-0');
+            
+            // 每次至少轉 5 圈 (1800度)
+            const randomExtra = Math.floor(Math.random() * 360);
+            currentRotation += (1800 + randomExtra);
+            
             wheel.style.transform = `rotate(${currentRotation}deg)`;
 
-            // 動畫結束後
+            // 等待動畫結束 (4s)
             setTimeout(() => {
-                const actualDeg = currentRotation % 360;
-                // 指針在上方(0度)，轉盤順時針轉，所以題目索引是逆著算的
-                const index = Math.floor(((360 - actualDeg) % 360) / (360 / numSegments));
+                const finalAngle = currentRotation % 360;
+                // 指針在上方（0度），轉盤順時針轉
+                // 所以計算方式為：(360 - (總旋轉角度 % 360)) / 每格角度
+                const index = Math.floor(((360 - (finalAngle % 360)) % 360) / (360 / numSegments));
                 showCard(index);
-                spinBtn.style.pointerEvents = 'auto';
-                spinBtn.style.opacity = '1';
-            }, 4100);
+                isSpinning = false;
+                spinBtn.disabled = false;
+                hintText.classList.remove('opacity-0');
+            }, 4050);
         });
 
         function showCard(index) {
@@ -266,7 +290,6 @@
 
         // 點擊卡片翻轉
         cardInner.addEventListener('click', (e) => {
-            // 如果點到的是關閉按鈕則不觸發翻轉（由按鈕自己的監聽處理）
             if (!e.target.closest('#close-btn')) {
                 cardInner.classList.toggle('is-flipped');
             }
