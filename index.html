@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>小小山坡守護者 - 互動轉盤遊戲</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #e0f2f1 0%, #b2dfdb 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+            touch-action: manipulation;
+        }
+
+        /* 轉盤旋轉動畫控制 */
+        #wheel {
+            transition: transform 4s cubic-bezier(0.15, 0, 0.15, 1);
+            filter: drop-shadow(0 5px 15px rgba(0,0,0,0.1));
+        }
+
+        /* 閃卡 3D 效果 */
+        .card-container {
+            perspective: 1000px;
+            width: 100%;
+            max-width: 350px;
+            height: 450px;
+        }
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-style: preserve-3d;
+        }
+        .card-inner.is-flipped {
+            transform: rotateY(180deg);
+        }
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 2rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 1.5rem;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+            border: 8px solid white;
+        }
+        .card-front {
+            background: white;
+            color: #111;
+        }
+        .card-back {
+            background: #f0fdf4;
+            transform: rotateY(180deg);
+            color: #111;
+        }
+
+        /* 按鈕觸感回饋 */
+        button:active {
+            transform: scale(0.95);
+        }
+
+        /* 隱藏捲軸但保留滾動 */
+        ::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <header class="text-center mb-6">
+        <h1 class="text-3xl font-bold text-teal-800">🏔️ 小小山坡守護者</h1>
+        <p class="text-teal-600 font-medium">轉動轉盤，學習水土保持！</p>
+    </header>
+
+    <!-- 遊戲主要區域 -->
+    <main class="flex flex-col items-center justify-center w-full">
+        <!-- 轉盤 -->
+        <div id="wheel-wrapper" class="relative w-[320px] h-[320px] md:w-[450px] md:h-[450px]">
+            <!-- 指針 (位於上方中央) -->
+            <div class="absolute -top-2 left-1/2 -translate-x-1/2 z-30 drop-shadow-md">
+                <svg width="40" height="50" viewBox="0 0 40 50">
+                    <path d="M20 50 L0 0 L40 0 Z" fill="#ef4444" />
+                </svg>
+            </div>
+            
+            <!-- SVG 轉盤 -->
+            <svg id="wheel" class="w-full h-full" viewBox="0 0 100 100">
+                <!-- 由 JavaScript 動態生成扇區 -->
+            </svg>
+
+            <!-- 中心啟動按鈕 -->
+            <button id="spin-btn" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 md:w-24 md:h-24 bg-white rounded-full shadow-2xl z-40 border-8 border-teal-500 flex items-center justify-center cursor-pointer group hover:bg-teal-50 transition-colors">
+                <span class="text-xl font-bold text-teal-700 group-hover:scale-110 transition-transform">GO!</span>
+            </button>
+        </div>
+
+        <p class="mt-8 text-teal-700 bg-white/50 px-4 py-2 rounded-full text-sm animate-bounce">
+            點擊中心「GO!」開始抽題
+        </p>
+    </main>
+
+    <!-- 閃卡彈出視窗 (Overlay) -->
+    <div id="modal" class="fixed inset-0 bg-teal-900/80 hidden items-center justify-center z-50 p-6 backdrop-blur-sm">
+        <div class="card-container">
+            <div id="card-inner" class="card-inner">
+                <!-- 正面：顯示題目 -->
+                <div class="card-front">
+                    <div class="absolute top-6 left-6 bg-teal-100 text-teal-700 px-3 py-1 rounded-full text-xs font-bold" id="card-num-label">題目 #1</div>
+                    <div class="text-6xl mb-6">❓</div>
+                    <h2 id="q-text" class="text-xl md:text-2xl font-bold text-gray-800 text-center leading-relaxed">
+                        題目載入中...
+                    </h2>
+                    <div class="mt-10 flex flex-col items-center">
+                        <div class="w-12 h-12 rounded-full border-2 border-dashed border-teal-300 flex items-center justify-center animate-spin-slow">
+                           <span class="text-teal-400">👆</span>
+                        </div>
+                        <p class="mt-2 text-sm text-teal-400 font-medium">點擊卡片看答案</p>
+                    </div>
+                </div>
+
+                <!-- 背面：顯示答案與獎勵 -->
+                <div class="card-back border-8 border-teal-400">
+                    <div class="text-4xl mb-4">✅</div>
+                    <h3 class="text-teal-600 font-bold text-lg mb-2">正確答案</h3>
+                    <p id="a-text" class="text-lg text-gray-700 mb-6 font-bold text-center px-4"></p>
+                    
+                    <div class="bg-yellow-100 p-4 rounded-2xl mb-6 w-full shadow-inner border border-yellow-200">
+                        <p class="text-yellow-800 font-bold text-center mb-1">🌟 小英雄獎勵 🌟</p>
+                        <p id="reward-text" class="text-yellow-700 text-sm italic text-center leading-relaxed"></p>
+                    </div>
+
+                    <button id="close-btn" class="bg-teal-600 text-white font-bold py-3 px-10 rounded-full shadow-lg hover:bg-teal-700 transition-colors">
+                        太棒了，下一題！
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const questions = [
+            { q: "為什麼山坡上要種滿樹木，不能隨便把樹砍光呢？", a: "因為樹根可以像小手一樣抓牢土壤", r: "你太棒了！就像大樹守護泥土，你也在守護山坡！" },
+            { q: "當颱風或大雨來臨時，小朋友應該去山坡地旁邊玩耍嗎？", a: "絕對不可以，因為山坡可能會崩塌或有土石流", r: "警覺性真高！保護自己安全是最聰明的決定！" },
+            { q: "如果你在山坡地上看到一條大大的「裂縫」，這代表什麼意思？", a: "代表山坡可能有滑動或崩塌的危險", r: "火眼金睛！發現潛在危險是守護者的超能力！" },
+            { q: "如果看到山腳下流出的水變得「非常混濁」且夾帶石頭，這可能是什麼？", a: "土石流發生的前兆", r: "觀察入微！你已經學會聽懂大自然的警告了！" },
+            { q: "在山坡地上，我們常看到一排整齊的「擋土牆」，作用是什麼？", a: "用來撐住山坡，防止泥土滑落", r: "沒錯！你就像擋土牆一樣可靠，知識就是你的防線！" },
+            { q: "如果山坡上的樹木看起來「歪歪斜斜」的，這代表什麼？", a: "代表地基不穩，土層可能正在緩慢滑動", r: "聰明！連樹木的小動作都瞞不過你的眼睛！" },
+            { q: "為什麼我們要在山坡上種草（植生覆蓋）？", a: "為了減少雨水直接沖刷泥土", r: "太優秀了！你給了大地一件綠色的防護衣！" },
+            { q: "聽到山上傳來「隆隆」巨響，像火車開過一樣，該怎麼辦？", a: "趕快往兩側高處逃跑，不要留在低谷", r: "反應神速！這就是小小守護者的求生智慧！" },
+            { q: "發現坡地有石塊掉落或排水溝塞住，打哪支電話反映？", a: "119 或 1680 (水保專線)", r: "非常有責任感！這支電話讓大家更安全了！" },
+            { q: "在山坡地開發時，我們為什麼要蓋「排水溝」？", a: "為了引導雨水流走，不讓水亂跑沖壞土地", r: "你懂得分流的藝術！大地會感謝你的體貼！" }
+        ];
+
+        const wheel = document.getElementById('wheel');
+        const spinBtn = document.getElementById('spin-btn');
+        const modal = document.getElementById('modal');
+        const cardInner = document.getElementById('card-inner');
+        const closeBtn = document.getElementById('close-btn');
+        
+        let currentRotation = 0;
+        const numSegments = questions.length;
+        const colors = ['#FFADAD', '#FFD6A5', '#FDFFB6', '#CAFFBF', '#9BF6FF', '#A0C4FF', '#BDB2FF', '#FFC6FF', '#C7F9CC', '#80FFDB'];
+
+        // 初始化轉盤
+        function init() {
+            for (let i = 0; i < numSegments; i++) {
+                const angle = 360 / numSegments;
+                const rotate = i * angle;
+                
+                const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                
+                // 扇區
+                const p = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                p.setAttribute("d", createArcPath(50, 50, 50, rotate, rotate + angle));
+                p.setAttribute("fill", colors[i % colors.length]);
+                p.setAttribute("stroke", "white");
+                p.setAttribute("stroke-width", "0.8");
+                
+                // 數字標籤
+                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                const textAngle = rotate + (angle / 2);
+                const rad = (textAngle - 90) * Math.PI / 180;
+                const x = 50 + 32 * Math.cos(rad);
+                const y = 50 + 32 * Math.sin(rad);
+                text.setAttribute("x", x);
+                text.setAttribute("y", y);
+                text.setAttribute("fill", "#444");
+                text.setAttribute("font-size", "6");
+                text.setAttribute("font-weight", "bold");
+                text.setAttribute("text-anchor", "middle");
+                text.setAttribute("transform", `rotate(${textAngle}, ${x}, ${y})`);
+                text.textContent = (i + 1);
+
+                g.appendChild(p);
+                g.appendChild(text);
+                wheel.appendChild(g);
+            }
+        }
+
+        function createArcPath(x, y, radius, startAngle, endAngle) {
+            const start = polarToCartesian(x, y, radius, endAngle);
+            const end = polarToCartesian(x, y, radius, startAngle);
+            const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+            return [
+                "M", x, y,
+                "L", start.x, start.y,
+                "A", radius, radius, 0, largeArcFlag, 0, end.x, end.y,
+                "Z"
+            ].join(" ");
+        }
+
+        function polarToCartesian(centerX, centerY, radius, angleInDegrees) {
+            const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
+            return {
+                x: centerX + (radius * Math.cos(angleInRadians)),
+                y: centerY + (radius * Math.sin(angleInRadians))
+            };
+        }
+
+        // 旋轉觸發
+        spinBtn.addEventListener('click', () => {
+            if (spinBtn.style.pointerEvents === 'none') return;
+            spinBtn.style.pointerEvents = 'none';
+            spinBtn.style.opacity = '0.7';
+            
+            // 隨機旋轉 5~8 圈加上隨機角度
+            const extraDegrees = 1800 + Math.floor(Math.random() * 1080);
+            currentRotation += extraDegrees;
+            wheel.style.transform = `rotate(${currentRotation}deg)`;
+
+            // 動畫結束後
+            setTimeout(() => {
+                const actualDeg = currentRotation % 360;
+                // 指針在上方(0度)，轉盤順時針轉，所以題目索引是逆著算的
+                const index = Math.floor(((360 - actualDeg) % 360) / (360 / numSegments));
+                showCard(index);
+                spinBtn.style.pointerEvents = 'auto';
+                spinBtn.style.opacity = '1';
+            }, 4100);
+        });
+
+        function showCard(index) {
+            const data = questions[index];
+            document.getElementById('card-num-label').textContent = `題目 #${index + 1}`;
+            document.getElementById('q-text').textContent = data.q;
+            document.getElementById('a-text').textContent = data.a;
+            document.getElementById('reward-text').textContent = data.r;
+            
+            cardInner.classList.remove('is-flipped');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        // 點擊卡片翻轉
+        cardInner.addEventListener('click', (e) => {
+            // 如果點到的是關閉按鈕則不觸發翻轉（由按鈕自己的監聽處理）
+            if (!e.target.closest('#close-btn')) {
+                cardInner.classList.toggle('is-flipped');
+            }
+        });
+
+        // 關閉 Modal
+        closeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        });
+
+        init();
+    </script>
+</body>
+</html>
